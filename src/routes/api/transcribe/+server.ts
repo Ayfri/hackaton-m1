@@ -30,7 +30,7 @@ export const POST = (async ({ request }) => {
     // Analyze command
     let command = null;
     const text = transcription.text.toLowerCase();
-    
+
     if (text.includes('météo')) {
       command = 'weather';
     } else if (text.includes('musique')) {
