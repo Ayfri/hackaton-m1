@@ -29,6 +29,13 @@
       "when": 1737369665683,
       "tag": "0003_known_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1737370534342,
+      "tag": "0004_premium_harrier",
+      "breakpoints": true
     }
   ]
 }
