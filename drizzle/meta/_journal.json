@@ -1,41 +1,41 @@
 {
-  "version": "5",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "5",
-      "when": 1737360883056,
-      "tag": "0000_familiar_luke_cage",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1737362423818,
-      "tag": "0001_grey_lord_hawal",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1737369651572,
-      "tag": "0002_rare_juggernaut",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "5",
-      "when": 1737369665683,
-      "tag": "0003_known_mandroid",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "5",
-      "when": 1737370534342,
-      "tag": "0004_premium_harrier",
-      "breakpoints": true
-    }
-  ]
-}
+    "version": "5",
+    "dialect": "sqlite",
+    "entries": [
+      {
+        "idx": 0,
+        "version": "5",
+        "when": 1737360883056,
+        "tag": "0000_familiar_luke_cage",
+        "breakpoints": true
+      },
+      {
+        "idx": 1,
+        "version": "5",
+        "when": 1737362423818,
+        "tag": "0001_grey_lord_hawal",
+        "breakpoints": true
+      },
+      {
+        "idx": 2,
+        "version": "5",
+        "when": 1737369651572,
+        "tag": "0002_rare_juggernaut",
+        "breakpoints": true
+      },
+      {
+        "idx": 3,
+        "version": "5",
+        "when": 1737369665683,
+        "tag": "0003_known_mandroid",
+        "breakpoints": true
+      },
+      {
+        "idx": 4,
+        "version": "5",
+        "when": 1737370534342,
+        "tag": "0004_premium_harrier",
+        "breakpoints": true
+      }
+    ]
+  }
