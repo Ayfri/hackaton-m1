@@ -15,6 +15,20 @@
       "when": 1737362423818,
       "tag": "0001_grey_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1737369651572,
+      "tag": "0002_rare_juggernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1737369665683,
+      "tag": "0003_known_mandroid",
+      "breakpoints": true
     }
   ]
 }
