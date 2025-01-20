@@ -4,6 +4,8 @@ import { openai } from '$lib/openai';
 import { db } from '$lib/db';
 import { roles, transcriptions, type Role } from '$lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { tools } from '$lib/tools';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.mjs';
 
 export const POST = (async ({ request }) => {
   try {
@@ -25,7 +27,7 @@ export const POST = (async ({ request }) => {
     // Convert Blob to File for OpenAI API
     const file = new File([audioFile], 'audio.wav', { type: audioFile.type });
 
-    const transcription = await openai.audio.transcriptions.create({
+    let transcription = await openai.audio.transcriptions.create({
       file,
       model: 'whisper-1',
     });
@@ -39,22 +41,80 @@ export const POST = (async ({ request }) => {
     });
 
     // Get a response from the chatbot
-    const chatResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'Tu es un assistant virtuel sympathique et serviable. Réponds de manière concise et naturelle en français.'
-        },
-        {
-          role: 'user',
-          content: transcription.text
+    const messages = [
+      {
+        role: 'system' as const,
+        content: 'Tu es un assistant virtuel sympathique et serviable. Réponds de manière concise et naturelle en français.'
+      },
+      {
+        role: 'user' as const,
+        content: transcription.text
+      }
+    ] as ChatCompletionMessageParam[];
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+      tools: tools.map(tool => ({
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: {
+            type: "object",
+            properties: tool.parameters.shape,
+            required: Object.keys(tool.parameters.shape).filter(
+              key => !tool.parameters.shape[key].isOptional()
+            )
+          }
         }
-      ],
-      max_tokens: 150
+      })),
+      tool_choice: 'auto'
     });
 
-    const botReply = chatResponse.choices[0]?.message?.content || "Désolé, je n'ai pas pu générer une réponse.";
+    // Changer responseMessage en let
+    let responseMessage = completion.choices[0].message;
+
+    let toolData: Record<string, any> = Object.fromEntries(tools.map(tool => [tool.name, null]));
+
+    if (responseMessage.tool_calls) {
+      const toolResults = await Promise.all(
+        responseMessage.tool_calls.map(async (toolCall) => {
+          const tool = tools.find(t => t.name === toolCall.function.name);
+          if (!tool) {
+            throw new Error(`Outil non trouvé: ${toolCall.function.name}`);
+          }
+
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = await tool.execute(args);
+          toolData[tool.name] = result;  // Sauvegarde des données brutes
+
+          return {
+            tool_call_id: toolCall.id,
+            role: 'tool' as const,
+            content: JSON.stringify(result)
+          };
+        })
+      );
+
+      // Ajouter les résultats des outils à la conversation
+      messages.push({
+        role: 'assistant' as const,
+        content: responseMessage.content,
+        tool_calls: responseMessage.tool_calls
+      });
+      messages.push(...toolResults);
+
+      // Obtenir une réponse finale
+      const finalCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages
+      });
+
+      responseMessage = finalCompletion.choices[0].message;
+    }
+
+    const botReply = responseMessage?.content || "Désolé, je n'ai pas pu générer une réponse.";
 
     // Save the bot reply to the database
     await db.insert(transcriptions).values({
@@ -69,7 +129,8 @@ export const POST = (async ({ request }) => {
 
     return json({
       transcriptions: userTranscriptions,
-      botReply
+      botReply,
+      data: toolData  // Ajout des données brutes dans la réponse
     });
   } catch (error) {
     console.error('Error processing audio:', error);

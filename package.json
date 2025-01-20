@@ -25,7 +25,7 @@
   "dependencies": {
     "@libsql/client": "^0.5.6",
     "drizzle-orm": "^0.29.4",
-    "openai": "^4.0.0",
+    "openai": "^4.79.1",
     "drizzle-kit": "^0.20.14"
   }
 }
