@@ -7,11 +7,32 @@ import { eq } from 'drizzle-orm';
 import { tools } from '$lib/tools';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.mjs';
 
+interface GeolocationCoordinates {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  altitude: number | null;
+  altitudeAccuracy: number | null;
+  heading: number | null;
+  speed: number | null;
+}
+
 export const POST = (async ({ request }) => {
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio');
     const user = formData.get('user') ?? 'user';
+    const geolocationData = formData.get('geolocation');
+    let coordinates: GeolocationCoordinates | null = null;
+
+    if (geolocationData) {
+      try {
+        coordinates = JSON.parse(geolocationData as string) as GeolocationCoordinates;
+      } catch (e) {
+        console.warn('Invalid geolocation data:', e);
+      }
+    }
+
     if (typeof user !== 'string') {
       return json({ error: 'Invalid user' }, { status: 400 });
     }
@@ -75,7 +96,10 @@ export const POST = (async ({ request }) => {
     // Changer responseMessage en let
     let responseMessage = completion.choices[0].message;
 
-    let toolData: Record<string, any> = Object.fromEntries(tools.map(tool => [tool.name, null]));
+    let toolData: Record<string, any> = {
+      ...Object.fromEntries(tools.map(tool => [tool.name, null])),
+      geolocation: coordinates
+    };
 
     if (responseMessage.tool_calls) {
       const toolResults = await Promise.all(
@@ -130,7 +154,7 @@ export const POST = (async ({ request }) => {
     return json({
       transcriptions: userTranscriptions,
       botReply,
-      data: toolData  // Ajout des données brutes dans la réponse
+      data: toolData
     });
   } catch (error) {
     console.error('Error processing audio:', error);
