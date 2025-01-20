@@ -84,46 +84,50 @@
   }
 </script>
 
-<div class="min-h-screen bg-gray-900 text-white p-8">
-  <div class="max-w-2xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">Assistant Vocal</h1>
+<div class="min-h-screen bg-gray-900 text-white flex flex-col">
+  <!-- Header fixe en haut -->
+  <div class="fixed top-0 left-0 w-full bg-gray-800 p-8 z-10">
+    <h1 class="text-4xl font-bold">Assistant Vocal</h1>
+  </div>
 
-    <div class="space-y-6">
-      <div class="flex justify-center">
-        <!-- Bouton pour démarrer/arrêter l'enregistrement -->
-        <button
-          class={`p-6 rounded-full ${recording ? "bg-red-600" : "bg-blue-600"} hover:opacity-90 transition-opacity`}
-          on:click={recording ? stopRecording : startRecording}
-        >
-          {#if loading}
-            <!-- Indicateur de chargement pendant que l'API traite l'audio -->
-            <div class="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full"></div>
-          {:else}
-            <!-- Icône d'enregistrement (microphone) ou arrêt (carré) -->
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {#if recording}
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
-              {:else}
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
-              {/if}
-            </svg>
-          {/if}
-        </button>
-      </div>
-
-      <!-- Affichage du chat historique (messages) -->
-      <div class="space-y-4">
-        {#each transcriptions as { role, text }, index}
-          <!-- Affiche chaque message selon le rôle de l'utilisateur (user) ou du bot -->
-          <div class={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div class={`bg-${role === 'user' ? 'blue' : 'gray'}-800 p-4 rounded-lg text-white max-w-xs`}>
-              <p class="text-sm font-semibold">{role === 'user' ? 'User' : 'Bot'}</p>
-              <p>{text}</p>
-            </div>
+  <!-- Espace pour les messages, avec défilement automatique du dernier message -->
+  <div class="flex-1 pt-24 overflow-y-auto p-4">
+    <div class="space-y-4" id="chat-messages">
+      {#each transcriptions as { role, text }, index}
+        <!-- Affiche chaque message selon le rôle de l'utilisateur (user) ou du bot -->
+        <div class={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div class={`bg-${role === 'user' ? 'blue' : 'gray'}-800 p-4 rounded-lg text-white max-w-xs`}>
+            <p class="text-sm font-semibold">{role === 'user' ? 'User' : 'Bot'}</p>
+            <p>{text}</p>
           </div>
-        {/each}
-      </div>
+        </div>
+      {/each}
+    </div>
+  </div>
+
+  <!-- Bouton Microphone fixe en bas -->
+  <div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 p-6">
+    <div class="flex justify-center">
+      <!-- Bouton pour démarrer/arrêter l'enregistrement -->
+      <button
+        class={`p-6 rounded-full ${recording ? "bg-red-600" : "bg-blue-600"} hover:opacity-90 transition-opacity`}
+        on:click={recording ? stopRecording : startRecording}
+      >
+        {#if loading}
+          <!-- Indicateur de chargement pendant que l'API traite l'audio -->
+          <div class="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full"></div>
+        {:else}
+          <!-- Icône d'enregistrement (microphone) ou arrêt (carré) -->
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {#if recording}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+            {:else}
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+            {/if}
+          </svg>
+        {/if}
+      </button>
     </div>
   </div>
 </div>
