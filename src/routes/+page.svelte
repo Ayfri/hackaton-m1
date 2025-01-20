@@ -1,10 +1,31 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { writable } from 'svelte/store';
+
   let recording = false; // Indique si l'enregistrement est en cours.
   let mediaRecorder: MediaRecorder | null = null; // Objet qui gère l'enregistrement audio via l'API MediaRecorder.
   let audioChunks: Blob[] = []; // Tableau pour stocker les fragments audio capturés lors de l'enregistrement.
   let transcriptions = []; // Contient les transcriptions de l'audio enregistré, une fois traitées par l'API.
   let loading = false; // Variable qui indique si une requête API est en cours (pour la transcription de l'audio).
 
+
+  // Fonction pour simuler le défilement automatique vers le bas
+  onMount(() => {
+    const chatMessages  = document.getElementById('chat-messages');
+    chatMessages.scrollTop = chatMessages.scrollHeight; // Scroller vers le bas au démarrage
+  });
+
+  // Cette fonction peut être appelée chaque fois qu'un nouveau message est ajouté
+  function scrollToBottom() {
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.scrollTop = chatMessages.scrollHeight; // Fait défiler jusqu'au dernier message
+  }
+
+  // Ajoute un message au tableau de transcription et fait défiler le chat
+  function addMessage(role, text) {
+    transcriptions.push({ role, text });
+    scrollToBottom();
+  }
   // Fonction qui démarre l'enregistrement audio lorsque l'utilisateur clique sur le bouton.
   async function startRecording() {
     console.log("Démarrage de l'enregistrement...");
