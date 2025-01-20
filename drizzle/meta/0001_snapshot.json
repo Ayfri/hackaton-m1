@@ -1,8 +1,6 @@
 {
-  "version": "5",
+  "version": "6",
   "dialect": "sqlite",
-  "id": "fb30263f-7bab-472d-920f-6aa2a8ac8eeb",
-  "prevId": "1654aab3-947e-4d8f-b8fa-3305429ed8aa",
   "tables": {
     "transcriptions": {
       "name": "transcriptions",
@@ -40,13 +38,16 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     }
   },
   "enums": {},
   "_meta": {
-    "schemas": {},
     "tables": {},
     "columns": {}
-  }
+  },
+  "id": "fb30263f-7bab-472d-920f-6aa2a8ac8eeb",
+  "prevId": "1654aab3-947e-4d8f-b8fa-3305429ed8aa",
+  "views": {}
 }
