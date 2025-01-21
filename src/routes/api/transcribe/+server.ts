@@ -70,17 +70,26 @@ export const POST = (async ({ request }) => {
       role: role,
     });
 
+    // Get all transcriptions for the user
+    let userTranscriptions = await db.select().from(transcriptions).where(eq(transcriptions.user, user));
+
     // Préparation des messages pour l'API OpenAI pour générer une réponse
     const messages = [
       {
         role: 'system' as const,
         content: 'Tu es un assistant virtuel sympathique et serviable. Réponds de manière concise et naturelle en français.'
       },
-      {
-        role: 'user' as const,
-        content: transcription.text // Utilisation de la transcription de l'utilisateur comme contenu
-      }
     ] as ChatCompletionMessageParam[];
+
+    messages.push(...userTranscriptions.map(transcription => ({
+      role: transcription.role === 'bot' ? 'assistant' : 'user',
+      content: transcription.text,
+    }) as ChatCompletionMessageParam));
+
+    messages.push({
+      role: 'user' as const,
+      content: transcription.text // Utilisation de la transcription de l'utilisateur comme contenu
+    });
 
     // Appel à l'API OpenAI pour obtenir une réponse du chatbot
     const completion = await openai.chat.completions.create({
@@ -160,8 +169,8 @@ export const POST = (async ({ request }) => {
       role: 'bot', // Le rôle est "bot" pour la réponse générée
     });
 
-    // Récupération de toutes les transcriptions de l'utilisateur dans la base de données
-    const userTranscriptions = await db.select().from(transcriptions).where(eq(transcriptions.user, user));
+    // Get all transcriptions for the user
+    userTranscriptions = await db.select().from(transcriptions).where(eq(transcriptions.user, user));
 
     // Renvoi de la réponse finale, y compris les transcriptions et les données des outils
     return json({

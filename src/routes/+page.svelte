@@ -53,7 +53,7 @@
   loading = true; // Mise à jour de l'état pour indiquer que l'audio est en train de se traiter
   try {
     const formData = new FormData(); // Création d'un objet FormData pour envoyer l'audio à l'API
-    formData.append('audio', audioBlob); // Ajout du fichier audio dans le FormData
+    formData.append('audio', audioBlob); // Ajout du fichier audio dans le FormData 
     formData.append('role', 'user'); // Ajout du rôle (ici 'user')
     console.log("Envoi de la requête API pour transcription...");
     const response = await fetch('/api/transcribe', { // Envoi de la requête POST à l'API
@@ -66,18 +66,19 @@
     transcriptions = data.transcriptions; // Stockage des transcriptions retournées par l'API
 
     // Vérifier si 'botReply' est défini et extraire le lien
-    if (data.botReply) {
-      const linkMatch = data.botReply.match(/https?:\/\/[^\s]+/); // Expression régulière pour trouver un lien
-      if (linkMatch) {
+    if (data.data.search_google) {
+      const linkMatch = data.data.search_google.results[0].url; // Expression régulière pour trouver un lien
         extractedLinkState = true; // Mise à jour de l'état pour afficher le lien
-        extractedLink = linkMatch[0]; // Mise à jour de la variable extractedLink avec le lien extrait
+        extractedLink = linkMatch; // Mise à jour de la variable extractedLink avec le lien extrait
         console.log("Lien extrait: " + extractedLink);
-      } else {
-        extractedLink = ""; // Aucun lien trouvé, réinitialisation
-      }
+    }else if (data.data.search_music) {
+      const linkMatch = data.data.search_music.results[0].url; // Expression régulière pour trouver un lien
+        extractedLinkState = true; // Mise à jour de l'état pour afficher le lien
+        extractedLink = linkMatch; // Mise à jour de la variable extractedLink avec le lien extrait
+        console.log("Lien extrait: " + extractedLink);
     } else {
       // Réponse par défaut si 'botReply' est manquant
-      extractedLinkState = true; // Afficher une réponse par défaut
+      extractedLinkState = false; // Afficher une réponse par défaut
       extractedLink = "Désolé, je n'ai pas pu obtenir de réponse. Essaye encore plus tard.";
       console.log("Réponse automatique générée: " + extractedLink);
     }
