@@ -144,9 +144,9 @@
       <!-- Affichage des transcriptions -->
       {#each transcriptions as { role, text }, index}
         <!-- Affiche chaque message selon le rôle de l'utilisateur (user) ou du bot -->
-        <div class={flex ${role === 'user' ? 'justify-end' : 'justify-start'}}>
-          <div class={bg-${role === 'user' ? 'blue' : 'gray'}-800 p-4 rounded-lg text-white max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg}>
-            <p class="text-sm sm:text-base md:text-lg font-semibold">{role === 'user' ? 'User' : 'Bot'}</p>
+        <div class={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div class={`bg-${role === 'user' ? 'blue' : 'gray'}-800 p-4 rounded-lg text-white max-w-xs`}>
+            <p class="text-sm font-semibold">{role === 'user' ? 'User' : 'Bot'}</p>
             <p>{text}</p>
           </div>
         </div>
@@ -159,7 +159,7 @@
     <div class="flex justify-center">
       <!-- Bouton pour démarrer/arrêter l'enregistrement -->
       <button
-        class={p-6 sm:p-8 rounded-full ${recording ? "bg-red-600" : "bg-blue-600"} hover:opacity-90 transition-opacity}
+      class={`p-6 rounded-full ${recording ? "bg-red-600" : "bg-blue-600"} hover:opacity-90 transition-opacity`}
         on:click={recording ? stopRecording : startRecording}
       >
         {#if loading}
