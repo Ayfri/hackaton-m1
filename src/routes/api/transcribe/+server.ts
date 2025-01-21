@@ -1,12 +1,13 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { openai } from '$lib/openai';
-import { db } from '$lib/db';
-import { roles, transcriptions, type Role } from '$lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { tools } from '$lib/tools';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.mjs';
+import { json } from '@sveltejs/kit'; // Importation de la fonction `json` pour renvoyer des réponses au format JSON
+import type { RequestHandler } from './$types'; // Importation du type `RequestHandler` pour la gestion des requêtes HTTP
+import { openai } from '$lib/openai'; // Importation de l'instance OpenAI pour interagir avec l'API OpenAI
+import { db } from '$lib/db'; // Importation de la base de données pour stocker les transcriptions
+import { roles, transcriptions, type Role } from '$lib/db/schema'; // Importation des schémas de base de données pour la gestion des rôles et des transcriptions
+import { eq } from 'drizzle-orm'; // Fonction `eq` pour effectuer des requêtes dans la base de données
+import { tools } from '$lib/tools'; // Importation des outils disponibles pour le chatbot
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.mjs'; // Importation du type pour les messages de complétion de chat
 
+// Définition d'une interface pour la géolocalisation
 interface GeolocationCoordinates {
   latitude: number;
   longitude: number;
@@ -17,14 +18,17 @@ interface GeolocationCoordinates {
   speed: number | null;
 }
 
+// Définition de la requête POST pour gérer l'enregistrement des audios et l'interaction avec OpenAI
 export const POST = (async ({ request }) => {
   try {
+    // Extraction des données envoyées par l'utilisateur via un formulaire
     const formData = await request.formData();
-    const audioFile = formData.get('audio');
-    const user = formData.get('user') ?? 'user';
-    const geolocationData = formData.get('geolocation');
+    const audioFile = formData.get('audio'); // Récupère le fichier audio envoyé par l'utilisateur
+    const user = formData.get('user') ?? 'user'; // Récupère le nom de l'utilisateur (par défaut 'user')
+    const geolocationData = formData.get('geolocation'); // Récupère les données de géolocalisation
     let coordinates: GeolocationCoordinates | null = null;
 
+    // Vérification et parsing des données de géolocalisation
     if (geolocationData) {
       try {
         coordinates = JSON.parse(geolocationData as string) as GeolocationCoordinates;
@@ -33,27 +37,32 @@ export const POST = (async ({ request }) => {
       }
     }
 
+    // Vérification que l'utilisateur est valide
     if (typeof user !== 'string') {
       return json({ error: 'Invalid user' }, { status: 400 });
     }
+
+    // Vérification de la validité du rôle de l'utilisateur
     const role = formData.get('role') as Role | undefined;
     if (!role || !roles.includes(role)) {
       return json({ error: 'Invalid role' }, { status: 400 });
     }
 
+    // Vérification de la présence du fichier audio et de son type
     if (!audioFile || !(audioFile instanceof Blob)) {
       return json({ error: 'No audio file provided' }, { status: 400 });
     }
 
-    // Convert Blob to File for OpenAI API
+    // Conversion du fichier audio pour l'API OpenAI
     const file = new File([audioFile], 'audio.wav', { type: audioFile.type });
 
+    // Appel à l'API OpenAI Whisper pour la transcription de l'audio
     let transcription = await openai.audio.transcriptions.create({
       file,
-      model: 'whisper-1',
+      model: 'whisper-1', // Utilisation du modèle de transcription Whisper de OpenAI
     });
 
-    // Save transcription to database
+    // Enregistrement de la transcription dans la base de données
     await db.insert(transcriptions).values({
       text: transcription.text,
       timestamp: new Date(),
@@ -61,7 +70,7 @@ export const POST = (async ({ request }) => {
       role: role,
     });
 
-    // Get a response from the chatbot
+    // Préparation des messages pour l'API OpenAI pour générer une réponse
     const messages = [
       {
         role: 'system' as const,
@@ -69,38 +78,40 @@ export const POST = (async ({ request }) => {
       },
       {
         role: 'user' as const,
-        content: transcription.text
+        content: transcription.text // Utilisation de la transcription de l'utilisateur comme contenu
       }
     ] as ChatCompletionMessageParam[];
 
+    // Appel à l'API OpenAI pour obtenir une réponse du chatbot
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o-mini", // Modèle GPT-4 utilisé pour générer la réponse
       messages,
       tools: tools.map(tool => ({
-        type: 'function',
+        type: 'function', // Outil de type fonction
         function: {
-          name: tool.name,
-          description: tool.description,
+          name: tool.name, // Nom de l'outil
+          description: tool.description, // Description de l'outil
           parameters: {
-            type: "object",
-            properties: tool.parameters.shape,
+            type: "object", // Paramètres de type objet
+            properties: tool.parameters.shape, // Définition des propriétés des paramètres
             required: Object.keys(tool.parameters.shape).filter(
-              key => !tool.parameters.shape[key].isOptional()
+              key => !tool.parameters.shape[key].isOptional() // Identification des paramètres obligatoires
             )
           }
         }
       })),
-      tool_choice: 'auto'
+      tool_choice: 'auto' // Choix automatique des outils à utiliser
     });
 
-    // Changer responseMessage en let
-    let responseMessage = completion.choices[0].message;
+    let responseMessage = completion.choices[0].message; // Récupère le message de réponse du chatbot
 
+    // Stockage des résultats d'outils et de la géolocalisation
     let toolData: Record<string, any> = {
-      ...Object.fromEntries(tools.map(tool => [tool.name, null])),
-      geolocation: coordinates
+      ...Object.fromEntries(tools.map(tool => [tool.name, null])), // Initialisation des outils avec des résultats nuls
+      geolocation: coordinates // Ajout de la géolocalisation
     };
 
+    // Vérification si OpenAI demande l'utilisation d'un outil spécifique
     if (responseMessage.tool_calls) {
       const toolResults = await Promise.all(
         responseMessage.tool_calls.map(async (toolCall) => {
@@ -109,9 +120,9 @@ export const POST = (async ({ request }) => {
             throw new Error(`Outil non trouvé: ${toolCall.function.name}`);
           }
 
-          const args = JSON.parse(toolCall.function.arguments);
-          const result = await tool.execute(args);
-          toolData[tool.name] = result;  // Sauvegarde des données brutes
+          const args = JSON.parse(toolCall.function.arguments); // Arguments à passer à l'outil
+          const result = await tool.execute(args); // Exécution de l'outil
+          toolData[tool.name] = result; // Stockage du résultat de l'outil
 
           return {
             tool_call_id: toolCall.id,
@@ -121,15 +132,15 @@ export const POST = (async ({ request }) => {
         })
       );
 
-      // Ajouter les résultats des outils à la conversation
+      // Ajout des résultats des outils dans la conversation
       messages.push({
         role: 'assistant' as const,
-        content: responseMessage.content,
-        tool_calls: responseMessage.tool_calls
+        content: responseMessage.content, // Ajout du message du chatbot
+        tool_calls: responseMessage.tool_calls // Ajout des appels d'outils
       });
-      messages.push(...toolResults);
+      messages.push(...toolResults); // Ajout des résultats des outils
 
-      // Obtenir une réponse finale
+      // Nouvelle requête OpenAI pour finaliser la réponse
       const finalCompletion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages
@@ -138,26 +149,28 @@ export const POST = (async ({ request }) => {
       responseMessage = finalCompletion.choices[0].message;
     }
 
+    // Vérification si la réponse contient un lien à ouvrir
     const botReply = responseMessage?.content || "Désolé, je n'ai pas pu générer une réponse.";
 
-    // Save the bot reply to the database
+    // Enregistrement de la réponse du chatbot dans la base de données
     await db.insert(transcriptions).values({
       text: botReply,
       timestamp: new Date(),
       user: user,
-      role: 'bot',
+      role: 'bot', // Le rôle est "bot" pour la réponse générée
     });
 
-    // Get all transcriptions for the user
+    // Récupération de toutes les transcriptions de l'utilisateur dans la base de données
     const userTranscriptions = await db.select().from(transcriptions).where(eq(transcriptions.user, user));
 
+    // Renvoi de la réponse finale, y compris les transcriptions et les données des outils
     return json({
-      transcriptions: userTranscriptions,
-      botReply,
-      data: toolData
+      transcriptions: userTranscriptions, // Liste des transcriptions de l'utilisateur
+      botReply, // Réponse générée par le bot
+      data: toolData // Données des outils exécutés
     });
   } catch (error) {
-    console.error('Error processing audio:', error);
-    return json({ error: 'Failed to process audio' }, { status: 500 });
+    console.error('Error processing audio:', error); // Gestion des erreurs
+    return json({ error: 'Failed to process audio' }, { status: 500 }); // Réponse en cas d'erreur
   }
-}) satisfies RequestHandler;
+}) satisfies RequestHandler; // Déclaration que cette fonction satisfait à l'interface RequestHandler

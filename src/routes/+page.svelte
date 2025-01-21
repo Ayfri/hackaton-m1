@@ -1,124 +1,152 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { writable } from 'svelte/store';
+  import { afterUpdate } from 'svelte'; // Importation de la fonction afterUpdate de Svelte
 
-  let recording = false; // Indique si l'enregistrement est en cours.
-  let mediaRecorder: MediaRecorder | null = null; // Objet qui gère l'enregistrement audio via l'API MediaRecorder.
-  let audioChunks: Blob[] = []; // Tableau pour stocker les fragments audio capturés lors de l'enregistrement.
-  let transcriptions = []; // Contient les transcriptions de l'audio enregistré, une fois traitées par l'API.
-  let loading = false; // Variable qui indique si une requête API est en cours (pour la transcription de l'audio).
+  let recording = false; // État de l'enregistrement, initialement faux
+  let mediaRecorder: MediaRecorder | null = null; // L'instance de MediaRecorder, qui sera utilisée pour enregistrer l'audio
+  let audioChunks: Blob[] = []; // Tableau qui stockera les morceaux d'audio capturés
+  let extractedLinkState: boolean = false; // Indicateur pour savoir si un lien a été extrait
+  let transcriptions: string = ""; // Texte des transcriptions retournées par l'API
+  let loading = false; // Indicateur de chargement pendant que l'audio est traité
+  let extractedLink = ""; // Variable pour stocker le lien extrait de la réponse API
 
-
-  // Fonction pour simuler le défilement automatique vers le bas
-  onMount(() => {
-    const chatMessages  = document.getElementById('chat-messages');
-    chatMessages.scrollTop = chatMessages.scrollHeight; // Scroller vers le bas au démarrage
-  });
-
-  // Cette fonction peut être appelée chaque fois qu'un nouveau message est ajouté
-  function scrollToBottom() {
-    const chatMessages = document.getElementById('chat-messages');
-    chatMessages.scrollTop = chatMessages.scrollHeight; // Fait défiler jusqu'au dernier message
+  // Fonction pour fermer le popup qui montre le lien extrait
+  function closePopup() {
+    extractedLinkState = false; // Fermeture du popup en réinitialisant l'état
   }
 
-  // Ajoute un message au tableau de transcription et fait défiler le chat
-  function addMessage(role, text) {
-    transcriptions.push({ role, text });
-    scrollToBottom();
-  }
-  // Fonction qui démarre l'enregistrement audio lorsque l'utilisateur clique sur le bouton.
+  // Fonction pour démarrer l'enregistrement audio
   async function startRecording() {
     console.log("Démarrage de l'enregistrement...");
     try {
-      // Demande l'accès au microphone de l'utilisateur.
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); // Demande d'accès au micro
       console.log("Microphone accédé avec succès.");
-
-      // Initialise le MediaRecorder avec le flux audio obtenu.
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = []; // Réinitialise les fragments audio avant de commencer un nouvel enregistrement.
-
-      // Lorsqu'il y a des données disponibles (lorsqu'un fragment audio est capturé), on les stocke dans `audioChunks`.
-      mediaRecorder.ondataavailable = (event) => {
+      mediaRecorder = new MediaRecorder(stream); // Création d'une instance MediaRecorder
+      audioChunks = []; // Réinitialisation du tableau audioChunks
+      mediaRecorder.ondataavailable = (event) => { // Événement déclenché à chaque fois qu'une partie de l'audio est disponible
         console.log("Données audio disponibles.");
-        audioChunks.push(event.data);
+        audioChunks.push(event.data); // Ajout des données audio dans le tableau
       };
-
-      // Lorsque l'enregistrement est arrêté, cette fonction est appelée.
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = async () => { // Événement déclenché lorsque l'enregistrement est arrêté
         console.log("Enregistrement arrêté.");
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' }); // Crée un Blob avec les fragments audio.
-        await processAudio(audioBlob); // Appelle la fonction pour traiter l'audio (envoi à l'API de transcription).
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' }); // Création d'un Blob à partir des morceaux d'audio
+        await processAudio(audioBlob); // Appel à la fonction pour traiter l'audio
       };
-
-      // Démarre l'enregistrement audio.
-      mediaRecorder.start();
+      mediaRecorder.start(); // Démarrage de l'enregistrement
       console.log("Enregistrement démarré.");
-      recording = true; // L'enregistrement est maintenant en cours.
+      recording = true; // Mise à jour de l'état pour indiquer que l'enregistrement est en cours
     } catch (error) {
-      console.error('Error accessing microphone:', error); // Si une erreur se produit lors de l'accès au microphone.
+      console.error('Error accessing microphone:', error); // Gestion des erreurs si l'accès au micro échoue
     }
   }
 
-  // Fonction qui arrête l'enregistrement lorsque l'utilisateur clique sur le bouton.
+  // Fonction pour arrêter l'enregistrement
   function stopRecording() {
-    if (mediaRecorder && recording) {
+    if (mediaRecorder && recording) { // Vérification si l'enregistrement est en cours
       console.log("Arrêt de l'enregistrement...");
-      mediaRecorder.stop(); // Arrête l'enregistrement et déclenche `onstop`.
-      recording = false; // L'enregistrement est maintenant terminé.
+      mediaRecorder.stop(); // Arrêt de l'enregistrement
+      recording = false; // Mise à jour de l'état pour indiquer que l'enregistrement est arrêté
     }
   }
 
-  // Fonction qui envoie l'audio capturé à l'API pour le traitement (transcription).
   async function processAudio(audioBlob: Blob) {
-    console.log("Traitement de l'audio...");
-    loading = true; // Lancement de la requête API pour la transcription.
-    try {
-      const formData = new FormData(); // Crée un objet FormData pour envoyer des données dans la requête.
-      formData.append('audio', audioBlob); // Ajoute le fichier audio sous la clé 'audio'.
-      formData.append('role', 'user'); // Ajoute un rôle à l'audio (dans ce cas 'user').
+  console.log("Traitement de l'audio...");
+  loading = true; // Mise à jour de l'état pour indiquer que l'audio est en train de se traiter
+  try {
+    const formData = new FormData(); // Création d'un objet FormData pour envoyer l'audio à l'API
+    formData.append('audio', audioBlob); // Ajout du fichier audio dans le FormData
+    formData.append('role', 'user'); // Ajout du rôle (ici 'user')
+    console.log("Envoi de la requête API pour transcription...");
+    const response = await fetch('/api/transcribe', { // Envoi de la requête POST à l'API
+      method: 'POST',
+      body: formData,
+    });
 
-      console.log("Envoi de la requête API pour transcription...");
-      const response = await fetch('/api/transcribe', { // Envoie une requête POST à l'API.
-        method: 'POST',
-        body: formData, // Le corps de la requête contient le fichier audio.
-      });
+    const data = await response.json(); // Traitement de la réponse JSON de l'API
+    console.log("Réponse reçue de l'API:", data);
+    transcriptions = data.transcriptions; // Stockage des transcriptions retournées par l'API
 
-      const data = await response.json(); // Lit la réponse JSON renvoyée par l'API.
-      console.log("Réponse reçue de l'API:", data);
-      transcriptions = data.transcriptions; // Récupère les transcriptions et les stocke dans la variable `transcriptions`.
+    // Vérifier si 'botReply' est défini et extraire le lien
+    if (data.botReply) {
+      const linkMatch = data.botReply.match(/https?:\/\/[^\s]+/); // Expression régulière pour trouver un lien
+      if (linkMatch) {
+        extractedLinkState = true; // Mise à jour de l'état pour afficher le lien
+        extractedLink = linkMatch[0]; // Mise à jour de la variable extractedLink avec le lien extrait
+        console.log("Lien extrait: " + extractedLink);
+      } else {
+        extractedLink = ""; // Aucun lien trouvé, réinitialisation
+      }
+    } else {
+      // Réponse par défaut si 'botReply' est manquant
+      extractedLinkState = true; // Afficher une réponse par défaut
+      extractedLink = "Désolé, je n'ai pas pu obtenir de réponse. Essaye encore plus tard.";
+      console.log("Réponse automatique générée: " + extractedLink);
+    }
 
-    } catch (error) {
-      console.error('Error processing audio:', error); // Gestion des erreurs si l'envoi ou le traitement échoue.
-    } finally {
-      loading = false; // Fin du traitement.
-      console.log("Traitement terminé.");
+  } catch (error) {
+    console.error('Error processing audio:', error); // Gestion des erreurs lors du traitement de l'audio
+  } finally {
+    loading = false; // Mise à jour de l'état pour indiquer que le traitement est terminé
+    console.log("Traitement terminé.");
+  }
+}
+
+
+
+  // Fonction pour faire défiler la page vers le dernier message
+  function scrollToLastMessage() {
+    const messagesContainer = document.getElementById('chat-messages'); // Récupération du conteneur des messages
+    if (messagesContainer) {
+      const lastMessage = messagesContainer.lastElementChild; // Récupération du dernier message
+      if (lastMessage) {
+        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' }); // Défilement fluide vers le dernier message
+      }
     }
   }
 
-  // Fonction qui met à jour la réponse à une transcription dans l'historique des messages.
-  function setResponse(index: number, response: string) {
-    console.log("Mise à jour de la réponse...");
-    // Met à jour le message de réponse dans `transcriptions` à l'index spécifié.
-    transcriptions[index].text = response;
-    console.log("Réponse mise à jour.");
-  }
+  // Utilisation de afterUpdate pour détecter quand les messages sont mis à jour
+  afterUpdate(() => {
+    scrollToLastMessage(); // Focalisation sur le dernier message après la mise à jour
+  });
 </script>
 
 <div class="min-h-screen bg-gray-900 text-white flex flex-col">
   <!-- Header fixe en haut -->
-  <div class="fixed top-0 left-0 w-full bg-gray-800 p-8 z-10">
-    <h1 class="text-4xl font-bold">Assistant Vocal</h1>
+  <div class="fixed top-0 left-0 w-full bg-gray-800 p-4 sm:p-6 md:p-8 z-10">
+    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold">Assistant Vocal</h1>
   </div>
 
   <!-- Espace pour les messages, avec défilement automatique du dernier message -->
-  <div class="flex-1 pt-24 overflow-y-auto p-4">
-    <div class="space-y-4" id="chat-messages">
+  <div class="flex-1 pt-20 sm:pt-24 md:pt-28 lg:pt-32 overflow-y-auto px-4 sm:px-6 md:px-8 pb-20" id="chat-messages">
+    <div class="space-y-4">
+      {#if extractedLinkState}
+      <!-- Popup qui s'affiche quand un lien est extrait -->
+      <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-center">
+          <h2 class="text-xl font-bold mb-4">Voulez-vous accéder au site ?</h2>
+          <div class="space-x-4">
+            <button
+              on:click={() => window.open(extractedLink, '_blank')}
+              class="bg-green-600 px-4 py-2 rounded hover:bg-green-700"
+            >
+              Oui
+            </button>
+            <button
+              on:click={closePopup}
+              class="bg-red-600 px-4 py-2 rounded hover:bg-red-700"
+            >
+              Non
+            </button>
+          </div>
+        </div>
+      </div>
+      {/if}
+    
+      <!-- Affichage des transcriptions -->
       {#each transcriptions as { role, text }, index}
         <!-- Affiche chaque message selon le rôle de l'utilisateur (user) ou du bot -->
-        <div class={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
-          <div class={`bg-${role === 'user' ? 'blue' : 'gray'}-800 p-4 rounded-lg text-white max-w-xs`}>
-            <p class="text-sm font-semibold">{role === 'user' ? 'User' : 'Bot'}</p>
+        <div class={flex ${role === 'user' ? 'justify-end' : 'justify-start'}}>
+          <div class={bg-${role === 'user' ? 'blue' : 'gray'}-800 p-4 rounded-lg text-white max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg}>
+            <p class="text-sm sm:text-base md:text-lg font-semibold">{role === 'user' ? 'User' : 'Bot'}</p>
             <p>{text}</p>
           </div>
         </div>
@@ -127,11 +155,11 @@
   </div>
 
   <!-- Bouton Microphone fixe en bas -->
-  <div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 p-6">
+  <div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 p-6 sm:p-8 md:p-10 lg:p-12">
     <div class="flex justify-center">
       <!-- Bouton pour démarrer/arrêter l'enregistrement -->
       <button
-        class={`p-6 rounded-full ${recording ? "bg-red-600" : "bg-blue-600"} hover:opacity-90 transition-opacity`}
+        class={p-6 sm:p-8 rounded-full ${recording ? "bg-red-600" : "bg-blue-600"} hover:opacity-90 transition-opacity}
         on:click={recording ? stopRecording : startRecording}
       >
         {#if loading}
@@ -139,7 +167,7 @@
           <div class="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full"></div>
         {:else}
           <!-- Icône d'enregistrement (microphone) ou arrêt (carré) -->
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {#if recording}
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
